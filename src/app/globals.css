@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for markdown rendering */
+.prose h1 {
+  @apply text-2xl font-bold mt-8 mb-4 text-gray-900;
+}
+
+.prose h2 {
+  @apply text-xl font-semibold mt-6 mb-3 text-gray-800;
+}
+
+.prose h3 {
+  @apply text-lg font-semibold mt-4 mb-2 text-gray-800;
+}
+
+.prose h4 {
+  @apply text-base font-semibold mt-3 mb-2 text-gray-700;
+}
+
+.prose p {
+  @apply my-3 text-gray-700 leading-relaxed;
+}
+
+.prose ul {
+  @apply my-3 pl-6 list-disc;
+}
+
+.prose ol {
+  @apply my-3 pl-6 list-decimal;
+}
+
+.prose li {
+  @apply my-1 text-gray-700;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-blue-500 pl-4 my-4 italic text-gray-600 bg-blue-50 py-2;
+}
+
+.prose table {
+  @apply w-full my-4 border-collapse;
+}
+
+.prose th {
+  @apply bg-gray-100 border border-gray-300 px-4 py-2 text-left font-semibold;
+}
+
+.prose td {
+  @apply border border-gray-300 px-4 py-2;
+}
+
+.prose strong {
+  @apply font-semibold text-gray-900;
+}
+
+.prose hr {
+  @apply my-8 border-t border-gray-300;
+}
+
+.prose a {
+  @apply text-blue-600 hover:underline;
+}
+
+.prose code {
+  @apply bg-gray-100 px-1 py-0.5 rounded text-sm font-mono;
+}
+
+.prose pre {
+  @apply bg-gray-100 p-4 rounded overflow-x-auto my-4;
+}
+
+.prose pre code {
+  @apply bg-transparent p-0;
+}
