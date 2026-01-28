@@ -1,6 +1,12 @@
 {
   "functions": {
-    "src/app/api/analyze/route.ts": {
+    "src/app/api/analyze/start/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/analyze/continue/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/analyze/replace/route.ts": {
       "maxDuration": 60
     }
   }
