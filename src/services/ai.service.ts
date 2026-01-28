@@ -38,9 +38,9 @@ export class AIService {
   }
 
   private async complete(prompt: string, maxTokens = 4096): Promise<string> {
-    return withRateLimit(anthropicLimiter, async () => {
-      logger.debug({ promptLength: prompt.length }, 'Sending AI request');
+    logger.debug({ promptLength: prompt.length }, 'Sending AI request');
 
+    try {
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: maxTokens,
@@ -54,7 +54,10 @@ export class AIService {
 
       logger.debug({ responseLength: textContent.text.length }, 'AI response received');
       return textContent.text;
-    });
+    } catch (error) {
+      logger.error({ error }, 'AI request failed');
+      throw error;
+    }
   }
 
   private parseJSON<T>(text: string, schema: z.ZodSchema<T>): T {

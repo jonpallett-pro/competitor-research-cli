@@ -122,7 +122,10 @@ export async function POST(request: NextRequest) {
         send('complete', { report: reportContent, companyName: targetProfile.companyName });
 
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Analysis failed';
+        const message = error instanceof Error
+          ? `${error.name}: ${error.message}`
+          : 'Analysis failed';
+        console.error('Analysis error:', error);
         send('error', { message });
       } finally {
         controller.close();
