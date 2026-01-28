@@ -93,21 +93,21 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        // Step 6: Generate market analysis
-        send('progress', { step: 'market', status: 'in_progress', message: 'Generating market analysis' });
-        const marketAnalysis = await ai.generateMarketAnalysis(targetProfile, competitorAnalyses);
-        send('progress', { step: 'market', status: 'complete', message: 'Market analysis complete' });
+        // Step 6: Generate market analysis and recommendations in parallel
+        send('progress', { step: 'market', status: 'in_progress', message: 'Generating analysis' });
+        const [marketAnalysis, recommendations] = await Promise.all([
+          ai.generateMarketAnalysis(targetProfile, competitorAnalyses),
+          ai.generateStrategicRecommendations(targetProfile, competitorAnalyses, {
+            marketOverview: '',
+            marketSegments: [],
+            competitivePositioning: '',
+            marketTrends: [],
+            entryBarriers: [],
+          }),
+        ]);
+        send('progress', { step: 'market', status: 'complete', message: 'Analysis complete' });
 
-        // Step 7: Generate strategic recommendations
-        send('progress', { step: 'recommendations', status: 'in_progress', message: 'Generating recommendations' });
-        const recommendations = await ai.generateStrategicRecommendations(
-          targetProfile,
-          competitorAnalyses,
-          marketAnalysis
-        );
-        send('progress', { step: 'recommendations', status: 'complete', message: 'Recommendations complete' });
-
-        // Step 8: Generate report
+        // Step 7: Generate report
         send('progress', { step: 'report', status: 'in_progress', message: 'Creating report' });
         const reportContent = report.generateReport(
           targetUrl,

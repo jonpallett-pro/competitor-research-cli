@@ -12,8 +12,7 @@ const INITIAL_STEPS: Step[] = [
   { id: 'identifying', label: 'Identifying competitors', status: 'pending' },
   { id: 'scraping_competitors', label: 'Scraping competitor websites', status: 'pending' },
   { id: 'analyzing', label: 'Analyzing competitors', status: 'pending' },
-  { id: 'market', label: 'Generating market analysis', status: 'pending' },
-  { id: 'recommendations', label: 'Generating recommendations', status: 'pending' },
+  { id: 'market', label: 'Generating analysis', status: 'pending' },
   { id: 'report', label: 'Creating report', status: 'pending' },
 ];
 
