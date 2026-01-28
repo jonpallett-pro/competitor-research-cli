@@ -8,12 +8,12 @@
     "compete": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.cli.json",
-    "start": "node dist/cli.js",
-    "dev": "tsx src/cli.ts",
-    "dev:web": "next dev",
-    "build:web": "next build",
-    "start:web": "next start",
+    "build": "next build",
+    "build:cli": "tsc -p tsconfig.cli.json",
+    "start": "next start",
+    "start:cli": "node dist/cli.js",
+    "dev": "next dev",
+    "dev:cli": "tsx src/cli.ts",
     "lint": "eslint src --ext .ts,.tsx",
     "clean": "rm -rf dist .next"
   },
