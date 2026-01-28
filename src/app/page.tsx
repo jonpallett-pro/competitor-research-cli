@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import AnalyzeForm from '../components/AnalyzeForm';
 import ProgressSteps, { Step, StepStatus } from '../components/ProgressSteps';
 import ReportViewer from '../components/ReportViewer';
@@ -52,6 +52,18 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [replacingCompetitors, setReplacingCompetitors] = useState(false);
 
+  // AbortController for cancelling in-flight requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const updateStep = useCallback((stepId: string, status: StepStatus) => {
     setSteps((prev) =>
       prev.map((step) =>
@@ -60,8 +72,31 @@ export default function Home() {
     );
   }, []);
 
+  // Reset to initial state
+  const handleStartOver = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    setPhase('idle');
+    setIsLoading(false);
+    setSteps(INITIAL_STEPS);
+    setCompetitors([]);
+    setTargetUrl('');
+    setTargetProfile(null);
+    setReport(null);
+    setCompanyName(null);
+    setError(null);
+    setReplacingCompetitors(false);
+  }, []);
+
   // Phase 1: Start analysis - scrape, profile, identify competitors
   const handleStartAnalysis = useCallback(async (url: string, competitorCount: number) => {
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setIsLoading(true);
     setPhase('identifying');
     setSteps(INITIAL_STEPS);
@@ -78,6 +113,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, competitors: competitorCount }),
+        signal: abortControllerRef.current.signal,
       });
 
       const data = await response.json();
@@ -95,6 +131,9 @@ export default function Home() {
       setCompetitors(data.competitors);
       setPhase('validating');
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return; // Request was cancelled, don't update state
+      }
       setError(err instanceof Error ? err.message : 'An error occurred');
       setPhase('idle');
     } finally {
@@ -119,6 +158,12 @@ export default function Home() {
 
     if (neededCount === 0) return;
 
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setReplacingCompetitors(true);
     setError(null);
 
@@ -131,6 +176,7 @@ export default function Home() {
           excludeNames: [...rejectedNames, ...approvedCompetitors.map((c) => c.name)],
           count: neededCount,
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       const data = await response.json();
@@ -141,6 +187,9 @@ export default function Home() {
 
       setCompetitors([...approvedCompetitors, ...data.competitors]);
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return; // Request was cancelled
+      }
       setError(err instanceof Error ? err.message : 'Failed to replace competitors');
     } finally {
       setReplacingCompetitors(false);
@@ -156,6 +205,12 @@ export default function Home() {
       return;
     }
 
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     setIsLoading(true);
     setPhase('analyzing');
     setSteps(ANALYSIS_STEPS);
@@ -170,10 +225,17 @@ export default function Home() {
           targetProfile,
           competitors: approvedCompetitors,
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) {
-        throw new Error('Failed to continue analysis');
+        // Try to extract error from response body
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to continue analysis');
+        } catch {
+          throw new Error('Failed to continue analysis');
+        }
       }
 
       const reader = response.body?.getReader();
@@ -197,33 +259,47 @@ export default function Home() {
           if (line.startsWith('event: ')) {
             currentEvent = line.slice(7);
           } else if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
+            // Safely parse SSE data
+            try {
+              const data = JSON.parse(line.slice(6));
 
-            switch (currentEvent) {
-              case 'progress':
-                updateStep(data.step, data.status);
-                break;
-              case 'complete':
-                setReport(data.report);
-                setCompanyName(data.companyName);
-                setPhase('complete');
-                break;
-              case 'error':
-                setError(data.message);
-                break;
+              switch (currentEvent) {
+                case 'progress':
+                  updateStep(data.step, data.status);
+                  break;
+                case 'complete':
+                  setReport(data.report);
+                  setCompanyName(data.companyName);
+                  setPhase('complete');
+                  break;
+                case 'error':
+                  setError(data.message);
+                  break;
+              }
+            } catch (parseError) {
+              console.error('Failed to parse SSE data:', parseError);
+              // Continue processing other events
             }
           }
         }
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return; // Request was cancelled
+      }
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsLoading(false);
     }
   }, [competitors, targetUrl, targetProfile, updateStep]);
 
+  // Memoize approved count to avoid recalculating on every render
+  const approvedCount = useMemo(
+    () => competitors.filter((c) => c.approved).length,
+    [competitors]
+  );
+
   const hasStarted = phase !== 'idle';
-  const allApproved = competitors.every((c) => c.approved);
   const someRejected = competitors.some((c) => !c.approved);
 
   return (
@@ -244,8 +320,16 @@ export default function Home() {
 
         {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex justify-between items-start">
             <p className="text-red-700">{error}</p>
+            {hasStarted && (
+              <button
+                onClick={handleStartOver}
+                className="ml-4 text-sm text-red-600 hover:text-red-800 underline"
+              >
+                Start Over
+              </button>
+            )}
           </div>
         )}
 
@@ -292,13 +376,24 @@ export default function Home() {
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 mt-1">{competitor.description}</p>
-                    <p className="text-xs text-gray-400 mt-1 truncate">{competitor.url}</p>
+                    <p
+                      className="text-xs text-gray-400 mt-1 truncate cursor-help"
+                      title={competitor.url}
+                    >
+                      {competitor.url}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
 
             <div className="flex gap-3">
+              <button
+                onClick={handleStartOver}
+                className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+              >
+                Start Over
+              </button>
               {someRejected && (
                 <button
                   onClick={handleReplaceCompetitors}
@@ -310,10 +405,10 @@ export default function Home() {
               )}
               <button
                 onClick={handleContinueAnalysis}
-                disabled={isLoading || competitors.filter((c) => c.approved).length === 0}
+                disabled={isLoading || approvedCount === 0}
                 className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
               >
-                Continue with {competitors.filter((c) => c.approved).length} Competitor{competitors.filter((c) => c.approved).length !== 1 ? 's' : ''}
+                Continue with {approvedCount} Competitor{approvedCount !== 1 ? 's' : ''}
               </button>
             </div>
           </div>
@@ -322,14 +417,34 @@ export default function Home() {
         {/* Progress - Phase 2 */}
         {phase === 'analyzing' && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <ProgressSteps steps={steps} />
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex-1">
+                <ProgressSteps steps={steps} />
+              </div>
+              <button
+                onClick={handleStartOver}
+                className="ml-4 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 
         {/* Report */}
         {report && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <ReportViewer content={report} companyName={companyName || undefined} />
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <button
+                onClick={handleStartOver}
+                className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+              >
+                New Analysis
+              </button>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <ReportViewer content={report} companyName={companyName || undefined} />
+            </div>
           </div>
         )}
       </div>

@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
+
 export type StepStatus = 'pending' | 'in_progress' | 'complete' | 'error';
 
 export interface Step {
@@ -10,6 +12,45 @@ export interface Step {
 
 interface ProgressStepsProps {
   steps: Step[];
+}
+
+function formatElapsedTime(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}m ${secs}s`;
+}
+
+function StepTimer({ isActive }: { isActive: boolean }) {
+  const [elapsed, setElapsed] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isActive) {
+      startTimeRef.current = Date.now();
+      setElapsed(0);
+
+      const interval = setInterval(() => {
+        if (startTimeRef.current) {
+          setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+        }
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [isActive]);
+
+  if (!isActive || elapsed === 0) {
+    return null;
+  }
+
+  return (
+    <span className="ml-2 text-xs text-gray-400">
+      ({formatElapsedTime(elapsed)})
+    </span>
+  );
 }
 
 export default function ProgressSteps({ steps }: ProgressStepsProps) {
@@ -33,6 +74,7 @@ export default function ProgressSteps({ steps }: ProgressStepsProps) {
             >
               {step.label}
               {step.status === 'in_progress' && '...'}
+              <StepTimer isActive={step.status === 'in_progress'} />
             </span>
           </div>
         ))}

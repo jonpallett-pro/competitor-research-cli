@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ScraperService } from '@/services/scraper.service';
 import { AIService } from '@/services/ai.service';
-
-interface StartRequest {
-  url: string;
-  competitors: number;
-}
+import { startRequestSchema, safeParseJson } from '@/utils/validation';
 
 export async function POST(request: NextRequest) {
-  const body: StartRequest = await request.json();
-  const { url: targetUrl, competitors: maxCompetitors } = body;
+  const parseResult = await safeParseJson(request, startRequestSchema);
 
-  if (!targetUrl) {
-    return NextResponse.json({ error: 'URL is required' }, { status: 400 });
+  if (!parseResult.success) {
+    return NextResponse.json({ error: parseResult.error }, { status: 400 });
   }
+
+  const { url: targetUrl, competitors: maxCompetitors } = parseResult.data;
 
   const scraper = new ScraperService();
   const ai = new AIService();
@@ -27,6 +24,14 @@ export async function POST(request: NextRequest) {
 
     // Step 3: Identify competitors
     const competitors = await ai.inferCompetitors(targetProfile, maxCompetitors);
+
+    // Check if any competitors were found
+    if (!competitors || competitors.length === 0) {
+      return NextResponse.json(
+        { error: 'No competitors could be identified for this business. Try a different URL or industry.' },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

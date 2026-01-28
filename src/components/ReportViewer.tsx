@@ -46,7 +46,12 @@ export default function ReportViewer({ content, companyName }: ReportViewerProps
         </button>
       </div>
       <div className="prose max-w-none bg-white border border-gray-200 rounded-lg p-6 shadow-sm overflow-x-auto">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          skipHtml={true}
+        >
+          {content}
+        </ReactMarkdown>
       </div>
     </div>
   );

@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AIService } from '@/services/ai.service';
-import type { BusinessProfile } from '@/schemas';
-
-interface ReplaceRequest {
-  targetProfile: BusinessProfile;
-  excludeNames: string[];
-  count: number;
-}
+import { replaceRequestSchema, safeParseJson } from '@/utils/validation';
 
 export async function POST(request: NextRequest) {
-  const body: ReplaceRequest = await request.json();
-  const { targetProfile, excludeNames, count } = body;
+  const parseResult = await safeParseJson(request, replaceRequestSchema);
 
-  if (!targetProfile || !excludeNames) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+  if (!parseResult.success) {
+    return NextResponse.json({ error: parseResult.error }, { status: 400 });
   }
+
+  const { targetProfile, excludeNames, count } = parseResult.data;
 
   const ai = new AIService();
 
@@ -29,6 +24,13 @@ export async function POST(request: NextRequest) {
         name.toLowerCase().includes(c.name.toLowerCase())
       ))
       .slice(0, count);
+
+    if (filteredCompetitors.length === 0) {
+      return NextResponse.json(
+        { error: 'Could not find any replacement competitors. Try with different criteria.' },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

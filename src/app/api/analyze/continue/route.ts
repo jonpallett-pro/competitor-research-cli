@@ -2,36 +2,24 @@ import { NextRequest } from 'next/server';
 import { ScraperService } from '@/services/scraper.service';
 import { AIService } from '@/services/ai.service';
 import { ReportService } from '@/services/report.service';
-import type { BusinessProfile, CompetitorAnalysis } from '@/schemas';
-
-interface Competitor {
-  name: string;
-  url: string;
-  description: string;
-  relevanceScore: number;
-  reasoning: string;
-}
-
-interface ContinueRequest {
-  targetUrl: string;
-  targetProfile: BusinessProfile;
-  competitors: Competitor[];
-}
+import type { CompetitorAnalysis } from '@/schemas';
+import { continueRequestSchema, safeParseJson } from '@/utils/validation';
 
 function sseMessage(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
 export async function POST(request: NextRequest) {
-  const body: ContinueRequest = await request.json();
-  const { targetUrl, targetProfile, competitors } = body;
+  const parseResult = await safeParseJson(request, continueRequestSchema);
 
-  if (!targetUrl || !targetProfile || !competitors?.length) {
-    return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+  if (!parseResult.success) {
+    return new Response(JSON.stringify({ error: parseResult.error }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
   }
+
+  const { targetUrl, targetProfile, competitors } = parseResult.data;
 
   const encoder = new TextEncoder();
 
@@ -46,10 +34,10 @@ export async function POST(request: NextRequest) {
       const report = new ReportService();
 
       try {
-        // Step 1: Scrape competitor websites
+        // Step 1: Scrape competitor websites (deduplicate URLs first)
         send('progress', { step: 'scraping_competitors', status: 'in_progress', message: 'Scraping competitor websites' });
-        const competitorUrls = competitors.map((c) => c.url);
-        const competitorContents = await scraper.scrapeMultiple(competitorUrls);
+        const uniqueUrls = [...new Set(competitors.map((c) => c.url))];
+        const competitorContents = await scraper.scrapeMultiple(uniqueUrls);
         send('progress', { step: 'scraping_competitors', status: 'complete', message: `Scraped ${competitorContents.size} websites` });
 
         // Step 2: Analyze competitors in parallel
