@@ -69,22 +69,21 @@ export async function POST(request: NextRequest) {
         const competitorContents = await scraper.scrapeMultiple(competitorUrls);
         send('progress', { step: 'scraping_competitors', status: 'complete', message: `Scraped ${competitorContents.size} websites` });
 
-        // Step 5: Analyze competitors
+        // Step 5: Analyze competitors in parallel
         send('progress', { step: 'analyzing', status: 'in_progress', message: 'Analyzing competitors' });
-        const competitorAnalyses: CompetitorAnalysis[] = [];
-
-        for (const competitor of competitors) {
+        const analysisPromises = competitors.map(async (competitor) => {
           const content = competitorContents.get(competitor.url);
           if (content) {
             try {
-              const analysis = await ai.analyzeCompetitor(competitor.url, content);
-              competitorAnalyses.push(analysis);
-              send('progress', { step: 'analyzing', status: 'in_progress', message: `Analyzed ${competitorAnalyses.length}/${competitors.length}` });
+              return await ai.analyzeCompetitor(competitor.url, content);
             } catch {
-              // Skip failed analyses
+              return null;
             }
           }
-        }
+          return null;
+        });
+        const results = await Promise.all(analysisPromises);
+        const competitorAnalyses = results.filter((r): r is CompetitorAnalysis => r !== null);
         send('progress', { step: 'analyzing', status: 'complete', message: `Analyzed ${competitorAnalyses.length} competitors` });
 
         if (competitorAnalyses.length === 0) {
