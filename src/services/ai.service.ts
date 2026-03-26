@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import type {
   BusinessProfile,
   Competitor,
@@ -25,35 +25,35 @@ import {
   MARKET_ANALYSIS_PROMPT,
   STRATEGIC_RECOMMENDATIONS_PROMPT,
 } from '../prompts/competitor-analysis';
-import { anthropicLimiter, withRateLimit } from '../utils/rate-limiter';
+import { openaiLimiter, withRateLimit } from '../utils/rate-limiter';
 import logger from '../utils/logger';
 import { z } from 'zod';
 
 export class AIService {
-  private client: Anthropic;
-  private model = 'claude-sonnet-4-20250514';
+  private client: OpenAI;
+  private model = 'gpt-5.4';
 
   constructor() {
-    this.client = new Anthropic();
+    this.client = new OpenAI();
   }
 
   private async complete(prompt: string, maxTokens = 4096): Promise<string> {
     logger.debug({ promptLength: prompt.length }, 'Sending AI request');
 
     try {
-      const response = await this.client.messages.create({
+      const response = await this.client.chat.completions.create({
         model: this.model,
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }],
       });
 
-      const textContent = response.content.find((block) => block.type === 'text');
-      if (!textContent || textContent.type !== 'text') {
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
         throw new Error('No text response from AI');
       }
 
-      logger.debug({ responseLength: textContent.text.length }, 'AI response received');
-      return textContent.text;
+      logger.debug({ responseLength: content.length }, 'AI response received');
+      return content;
     } catch (error) {
       logger.error({ error }, 'AI request failed');
       throw error;

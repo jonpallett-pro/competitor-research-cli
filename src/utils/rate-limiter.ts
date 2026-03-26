@@ -1,7 +1,7 @@
 import Bottleneck from 'bottleneck';
 
-// Rate limiter for Anthropic API (adjust based on your tier)
-export const anthropicLimiter = new Bottleneck({
+// Rate limiter for OpenAI API (adjust based on your tier)
+export const openaiLimiter = new Bottleneck({
   maxConcurrent: 2,
   minTime: 500, // 500ms between requests
 });

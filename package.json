@@ -27,7 +27,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
+    "openai": "^4.77.0",
     "axios": "^1.7.9",
     "bottleneck": "^2.19.5",
     "chalk": "^5.4.1",

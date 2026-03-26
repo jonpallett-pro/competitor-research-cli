@@ -33,8 +33,8 @@ program
     }
 
     // Validate environment variables
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error(chalk.red('Error: ANTHROPIC_API_KEY environment variable is required'));
+    if (!process.env.OPENAI_API_KEY) {
+      console.error(chalk.red('Error: OPENAI_API_KEY environment variable is required'));
       console.error(chalk.dim('Set it in your environment or create a .env file'));
       process.exit(1);
     }
@@ -78,8 +78,8 @@ program
     }
 
     // Validate environment variables
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error(chalk.red('Error: ANTHROPIC_API_KEY environment variable is required'));
+    if (!process.env.OPENAI_API_KEY) {
+      console.error(chalk.red('Error: OPENAI_API_KEY environment variable is required'));
       console.error(chalk.dim('Set it in your environment or create a .env file'));
       process.exit(1);
     }
