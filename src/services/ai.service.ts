@@ -43,7 +43,7 @@ export class AIService {
     try {
       const response = await this.client.chat.completions.create({
         model: this.model,
-        max_tokens: maxTokens,
+        max_completion_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }],
       });
 
